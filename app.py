@@ -349,12 +349,12 @@ def upload():
     try:
         s3_client.upload_fileobj(file, BUCKET_NAME, s3_key)
         cursor.execute(
-            """
-            INSERT INTO files(user_id,file_name,file_path)
-            VALUES(%s,%s,%s)
-            """,
-            (session["user_id"], filename, s3_key)
-        )
+    """
+    INSERT INTO files(user_id,file_name,s3_key)
+    VALUES(%s,%s,%s)
+    """,
+    (session["user_id"], filename, s3_key)
+)
         db.commit()
     except Exception as e:
         print(f"Error uploading file to S3: {e}")
