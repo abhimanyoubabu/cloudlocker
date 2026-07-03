@@ -84,13 +84,13 @@ def dashboard():
     
     storage_bytes = 0
     for f in files:
-        s3_key = f[3]
-        if s3_key:
+        filepath = f[3]
+        if filepath:
             try:
-                response = s3_client.head_object(Bucket=BUCKET_NAME, Key=s3_key)
+                response = s3_client.head_object(Bucket=BUCKET_NAME, Key=filepath)
                 storage_bytes += response.get('ContentLength', 0)
             except Exception as e:
-                print(f"Error getting file size for {s3_key}: {e}")
+                print(f"Error getting file size for {filepath}: {e}")
             
     # Format storage size
     if storage_bytes < 1024:
@@ -349,12 +349,12 @@ def upload():
     try:
         s3_client.upload_fileobj(file, BUCKET_NAME, s3_key)
         cursor.execute(
-    """
-    INSERT INTO files(user_id,file_name,s3_key)
-    VALUES(%s,%s,%s)
-    """,
-    (session["user_id"], filename, s3_key)
-)
+            """
+            INSERT INTO files(user_id,file_name,file_path)
+            VALUES(%s,%s,%s)
+            """,
+            (session["user_id"], filename, s3_key)
+        )
         db.commit()
     except Exception as e:
         print(f"Error uploading file to S3: {e}")
