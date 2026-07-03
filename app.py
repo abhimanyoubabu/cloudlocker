@@ -84,13 +84,13 @@ def dashboard():
     
     storage_bytes = 0
     for f in files:
-        filepath = f[3]
-        if filepath:
+        s3_key = f[3]
+        if s3_key:
             try:
-                response = s3_client.head_object(Bucket=BUCKET_NAME, Key=filepath)
+                response = s3_client.head_object(Bucket=BUCKET_NAME, Key=s3_key)
                 storage_bytes += response.get('ContentLength', 0)
             except Exception as e:
-                print(f"Error getting file size for {filepath}: {e}")
+                print(f"Error getting file size for {s3_key}: {e}")
             
     # Format storage size
     if storage_bytes < 1024:
