@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create an Account | CloudLocker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.add('light-theme');
+        }
+    </script>
+</head>
+
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-logo">
+            <div class="navbar-brand">
+                <span>CloudLocker</span>
+            </div>
+        </div>
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Create an Account</h1>
+                <p>Register below to get started with your portal</p>
+            </div>
+
+
+            <form action="/register" method="POST">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" class="input-control"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" class="input-control"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" class="input-control"
+                        minlength="8" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" class="input-control"
+                        minlength="8" required>
+                </div>
+
+                <button type="submit" class="btn">Register</button>
+            </form>
+
+            <div class="auth-footer">
+                Already have an account? <a href="/">Sign In</a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

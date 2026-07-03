@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | CloudLocker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.add('light-theme');
+        }
+    </script>
+</head>
+
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-logo">
+            <div class="navbar-brand">
+                <span>CloudLocker</span>
+            </div>
+        </div>
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Welcome Back</h1>
+                <p>Please enter your credentials to log in</p>
+            </div>
+            <form action="/login" method="POST">
+                <div class="form-group">
+                    <label for="identity">Username or Email</label>
+                    <input type="text" id="identity" name="identity" class="input-control"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" class="input-control"
+                        required>
+                </div>
+
+                <button type="submit" class="btn">Sign In</button>
+            </form>
+
+            <div class="auth-footer">
+                Don't have an account? <a href="/register-page">Register Here</a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

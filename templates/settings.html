@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Secure Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script>
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.add('light-theme');
+        }
+    </script>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Dashboard Navigation Bar -->
+        <header class="navbar">
+            <a href="/dashboard" class="navbar-brand">
+                <div class="logo-icon">
+                    <i data-feather="cloud"></i>
+                </div>
+                <span>CloudLocker</span>
+            </a>
+            
+            <nav class="nav-menu">
+                <a href="/dashboard" class="nav-link">
+                    <i data-feather="grid" style="width: 16px; height: 16px;"></i>
+                    Dashboard
+                </a>
+                <a href="/profile" class="nav-link">
+                    <i data-feather="user" style="width: 16px; height: 16px;"></i>
+                    Profile
+                </a>
+            </nav>
+
+            <div class="nav-actions">
+                <a href="/profile" class="user-profile-menu" title="View Profile">
+                    {% if user[4] %}
+                    <img src="{{ url_for('profile_pic', filename=user[4]) }}" alt="Avatar" class="navbar-avatar">
+                    {% else %}
+                    <div class="navbar-avatar-placeholder">
+                        {{ user[1][0].upper() }}
+                    </div>
+                    {% endif %}
+                    <div class="user-info-text">
+                        <span class="user-info-name">{{ user[1] }}</span>
+                        <span class="user-info-role">Member</span>
+                    </div>
+                </a>
+                <a href="/settings" class="settings-link active" title="Settings">
+                    <i data-feather="settings" style="width: 16px; height: 16px;"></i>
+                    Settings
+                </a>
+                <a href="/logout" class="logout-link" title="Logout">
+                    <i data-feather="log-out" style="width: 16px; height: 16px;"></i>
+                    Logout
+                </a>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Flash messages support -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <main class="settings-grid">
+            <!-- Sidebar Navigation -->
+            <aside class="settings-sidebar">
+                <button onclick="scrollToSection('theme-section', this)" class="settings-nav-btn active">
+                    <i data-feather="sliders" style="width: 16px; height: 16px;"></i>
+                    Preferences
+                </button>
+                <button onclick="scrollToSection('email-section', this)" class="settings-nav-btn">
+                    <i data-feather="mail" style="width: 16px; height: 16px;"></i>
+                    Change Email
+                </button>
+                <button onclick="scrollToSection('password-section', this)" class="settings-nav-btn">
+                    <i data-feather="lock" style="width: 16px; height: 16px;"></i>
+                    Change Password
+                </button>
+                <button onclick="scrollToSection('danger-section', this)" class="settings-nav-btn" style="color: var(--danger);">
+                    <i data-feather="alert-triangle" style="width: 16px; height: 16px;"></i>
+                    Danger Zone
+                </button>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="settings-content">
+                <!-- Theme Preferences -->
+                <section id="theme-section" class="settings-panel">
+                    <h2 class="panel-title">
+                        <i data-feather="sliders" style="width: 20px; height: 20px; vertical-align: middle;"></i>
+                        Preferences
+                    </h2>
+                    <div class="theme-toggle-container">
+                        <div class="theme-toggle-info">
+                            <span class="theme-toggle-title">Dark Mode</span>
+                            <span class="theme-toggle-desc">Toggle between light and dark themes.</span>
+                        </div>
+                        <label class="switch-control">
+                            <input type="checkbox" id="theme-switch" onchange="toggleTheme(this.checked)">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- Change Email -->
+                <section id="email-section" class="settings-panel">
+                    <h2 class="panel-title">
+                        <i data-feather="mail" style="width: 20px; height: 20px; vertical-align: middle;"></i>
+                        Change Email
+                    </h2>
+                    <form action="/update_email" method="POST" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" id="email" name="email" class="input-control" value="{{ user[2] }}" required>
+                        </div>
+                        <button type="submit" class="btn" style="align-self: flex-start; width: auto; min-width: 150px;">Save Changes</button>
+                    </form>
+                </section>
+
+                <!-- Change Password -->
+                <section id="password-section" class="settings-panel">
+                    <h2 class="panel-title">
+                        <i data-feather="lock" style="width: 20px; height: 20px; vertical-align: middle;"></i>
+                        Change Password
+                    </h2>
+                    <form action="/update_password" method="POST" class="security-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                        <input type="hidden" name="referrer" value="/settings">
+                        <div class="form-group">
+                            <label for="current_password">Current Password</label>
+                            <input type="password" id="current_password" name="current_password" class="input-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="new_password">New Password</label>
+                            <input type="password" id="new_password" name="new_password" class="input-control" minlength="8" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm_password">Confirm New Password</label>
+                            <input type="password" id="confirm_password" name="confirm_password" class="input-control" minlength="8" required>
+                        </div>
+                        <button type="submit" class="btn" style="align-self: flex-start; width: auto; min-width: 150px;">Update Password</button>
+                    </form>
+                </section>
+
+                <!-- Danger Zone -->
+                <section id="danger-section" class="settings-panel danger-panel">
+                    <h2 class="panel-title danger-title">
+                        <i data-feather="alert-triangle" style="width: 20px; height: 20px; vertical-align: middle;"></i>
+                        Danger Zone
+                    </h2>
+                    <div class="danger-desc">
+                        Permanently delete your account and all of your uploaded files. This action is irreversible and all storage associated with this user will be deleted immediately.
+                    </div>
+                    <form action="/delete_account" method="POST" onsubmit="return confirmAccountDeletion();">
+                        <button type="submit" class="btn" style="background-color: var(--danger); width: auto; min-width: 150px;">Delete Account</button>
+                    </form>
+                </section>
+            </div>
+        </main>
+        </div>
+    </div>
+
+    <script>
+        feather.replace();
+
+        // Theme toggle logic
+        function toggleTheme(isDark) {
+            if (isDark) {
+                document.documentElement.classList.remove('light-theme');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.documentElement.classList.add('light-theme');
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // Initialize checkbox state based on current page theme
+        document.addEventListener('DOMContentLoaded', function() {
+            const isLight = document.documentElement.classList.contains('light-theme');
+            const themeSwitch = document.getElementById('theme-switch');
+            if (themeSwitch) {
+                themeSwitch.checked = !isLight; // Checked means Dark mode
+            }
+        });
+
+        // Smooth scroll and active button toggles
+        function scrollToSection(sectionId, btnEl) {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            // Toggle active classes on sidebar buttons
+            const buttons = document.querySelectorAll('.settings-nav-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            btnEl.classList.add('active');
+        }
+
+        // Deletion confirmation workflow
+        function confirmAccountDeletion() {
+            const doubleCheck = confirm("Warning: Deleting your account is permanent. All your files will be deleted forever. Do you wish to proceed?");
+            if (doubleCheck) {
+                const username = "{{ user[1] }}";
+                const enterName = prompt(`Please type your username "${username}" to confirm account deletion:`);
+                return enterName === username;
+            }
+            return false;
+        }
+    </script>
+</body>
+
+</html>
