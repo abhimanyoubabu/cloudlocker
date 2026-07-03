@@ -32,7 +32,7 @@ DB_PORT = 3306
 # AWS S3 Configuration
 AWS_ACCESS_KEY_ID = None          # Replace with AWS Access Key, or set to None if using EC2 IAM Role
 AWS_SECRET_ACCESS_KEY = None    # Replace with AWS Secret Key, or set to None if using EC2 IAM Role
-AWS_REGION = "US East (N. Virginia) us-east-1"
+AWS_REGION = "us-east-1"
 BUCKET_NAME = "cloudlocker-storage-ab"            # Replace with your S3 Bucket Name
 
 db = pymysql.connect(
