@@ -20,20 +20,38 @@ def _source():
     return info
 
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+import boto3
 
-PROFILE_PIC_FOLDER = "profile_pics"
-os.makedirs(PROFILE_PIC_FOLDER, exist_ok=True)
+# Database Configuration
+DB_HOST = "cloudlocker-db.c49meyskk70n.us-east-1.rds.amazonaws.com"          # Replace with RDS endpoint (e.g. "xxx.rds.amazonaws.com") when deploying
+DB_USER = "admin"               # Replace with RDS database username
+DB_PASSWORD = "password123"    # Replace with RDS database password
+DB_NAME = "regdb"              # Replace with RDS database name
+DB_PORT = 3306
+
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID = None          # Replace with AWS Access Key, or set to None if using EC2 IAM Role
+AWS_SECRET_ACCESS_KEY = None    # Replace with AWS Secret Key, or set to None if using EC2 IAM Role
+AWS_REGION = "US East (N. Virginia) us-east-1"
+BUCKET_NAME = "cloudlocker-storage-ab"            # Replace with your S3 Bucket Name
 
 db = pymysql.connect(
-    host="localhost",
-    user="root",
-    password="password123",
-    database="regdb"
+    host=DB_HOST,
+    user=DB_USER,
+    password=DB_PASSWORD,
+    database=DB_NAME,
+    port=DB_PORT
 )
 
 cursor = db.cursor()
+
+# Initialize AWS S3 Client
+s3_params = {"region_name": AWS_REGION}
+if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    s3_params["aws_access_key_id"] = AWS_ACCESS_KEY_ID
+    s3_params["aws_secret_access_key"] = AWS_SECRET_ACCESS_KEY
+
+s3_client = boto3.client("s3", **s3_params)
 
 
 @app.route("/")
@@ -67,8 +85,12 @@ def dashboard():
     storage_bytes = 0
     for f in files:
         filepath = f[3]
-        if filepath and os.path.exists(filepath):
-            storage_bytes += os.path.getsize(filepath)
+        if filepath:
+            try:
+                response = s3_client.head_object(Bucket=BUCKET_NAME, Key=filepath)
+                storage_bytes += response.get('ContentLength', 0)
+            except Exception as e:
+                print(f"Error getting file size for {filepath}: {e}")
             
     # Format storage size
     if storage_bytes < 1024:
@@ -205,22 +227,38 @@ def update_profile_pic():
         return redirect("/profile")
 
     filename = secure_filename(f"user_{session['user_id']}_{file.filename}")
-    filepath = os.path.join(PROFILE_PIC_FOLDER, filename)
-    file.save(filepath)
+    s3_key = f"profile_pics/{filename}"
 
-    cursor.execute("UPDATE users SET profile_pic=%s WHERE id=%s", (filename, session["user_id"]))
-    db.commit()
+    try:
+        s3_client.upload_fileobj(file, BUCKET_NAME, s3_key)
+        cursor.execute("UPDATE users SET profile_pic=%s WHERE id=%s", (s3_key, session["user_id"]))
+        db.commit()
+        flash("Profile picture updated.", "success")
+    except Exception as e:
+        print(f"Error uploading profile picture to S3: {e}")
+        flash("Error uploading profile picture to S3.", "error")
 
-    flash("Profile picture updated.", "success")
     return redirect("/profile")
 
 
-@app.route("/profile_pics/<filename>")
+@app.route("/profile_pics/<path:filename>")
 def profile_pic(filename):
     if "user_id" not in session:
         return redirect("/")
-    directory = os.path.abspath(PROFILE_PIC_FOLDER)
-    return send_from_directory(directory, filename)
+    
+    # Prefix filename if not already formatted
+    s3_key = filename if filename.startswith("profile_pics/") else f"profile_pics/{filename}"
+    
+    try:
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': BUCKET_NAME, 'Key': s3_key},
+            ExpiresIn=3600
+        )
+        return redirect(url)
+    except Exception as e:
+        print(f"Error generating presigned URL for profile pic: {e}")
+        return abort(404, description="Profile picture not found")
 
 
 @app.route("/settings")
@@ -262,14 +300,23 @@ def delete_account():
     cursor.execute("SELECT * FROM files WHERE user_id=%s", (user_id,))
     files = cursor.fetchall()
 
-    # Delete files from filesystem
+    # Delete files from S3
     for file in files:
-        filepath = file[3]
-        if filepath and os.path.exists(filepath):
+        s3_key = file[3]
+        if s3_key:
             try:
-                os.remove(filepath)
+                s3_client.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
             except Exception as e:
-                print(f"Error removing file {filepath} from filesystem: {e}")
+                print(f"Error removing file {s3_key} from S3: {e}")
+
+    # Delete profile picture from S3 if exists
+    cursor.execute("SELECT profile_pic FROM users WHERE id=%s", (user_id,))
+    user_record = cursor.fetchone()
+    if user_record and user_record[0]:
+        try:
+            s3_client.delete_object(Bucket=BUCKET_NAME, Key=user_record[0])
+        except Exception as e:
+            print(f"Error removing profile picture {user_record[0]} from S3: {e}")
 
     # Delete database records
     cursor.execute("DELETE FROM files WHERE user_id=%s", (user_id,))
@@ -287,19 +334,31 @@ def upload():
     if "user_id" not in session:
         return redirect("/")
 
-    file = request.files["uploaded_file"]
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
+    if "uploaded_file" not in request.files:
+        flash("No file part", "error")
+        return redirect("/dashboard")
 
-    cursor.execute(
-        """
-        INSERT INTO files(user_id,file_name,file_path)
-        VALUES(%s,%s,%s)
-        """,
-        (session["user_id"], filename, filepath)
-    )
-    db.commit()
+    file = request.files["uploaded_file"]
+    if file.filename == "":
+        flash("No selected file", "error")
+        return redirect("/dashboard")
+
+    filename = secure_filename(file.filename)
+    s3_key = f"uploads/user_{session['user_id']}_{filename}"
+
+    try:
+        s3_client.upload_fileobj(file, BUCKET_NAME, s3_key)
+        cursor.execute(
+            """
+            INSERT INTO files(user_id,file_name,file_path)
+            VALUES(%s,%s,%s)
+            """,
+            (session["user_id"], filename, s3_key)
+        )
+        db.commit()
+    except Exception as e:
+        print(f"Error uploading file to S3: {e}")
+        flash("Error uploading file to S3", "error")
 
     return redirect("/dashboard")
 
@@ -322,8 +381,22 @@ def download_file(file_id):
     db.commit()
 
     filename = file_record[2]
-    directory = os.path.abspath(UPLOAD_FOLDER)
-    return send_from_directory(directory, filename, as_attachment=True)
+    s3_key = file_record[3]
+
+    try:
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': BUCKET_NAME,
+                'Key': s3_key,
+                'ResponseContentDisposition': f'attachment; filename="{filename}"'
+            },
+            ExpiresIn=3600
+        )
+        return redirect(url)
+    except Exception as e:
+        print(f"Error generating presigned download URL: {e}")
+        return abort(500, description="Could not download file from S3")
 
 
 @app.route("/delete/<int:file_id>", methods=["POST"])
@@ -340,13 +413,12 @@ def delete_file(file_id):
     if not file_record:
         return abort(404, description="File not found or access denied")
 
-    # Delete from filesystem if it exists
-    filepath = file_record[3]
-    if os.path.exists(filepath):
-        try:
-            os.remove(filepath)
-        except Exception as e:
-            print(f"Error removing file from filesystem: {e}")
+    # Delete from S3
+    s3_key = file_record[3]
+    try:
+        s3_client.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
+    except Exception as e:
+        print(f"Error deleting file {s3_key} from S3: {e}")
 
     # Delete from database
     cursor.execute("DELETE FROM files WHERE id=%s", (file_id,))
