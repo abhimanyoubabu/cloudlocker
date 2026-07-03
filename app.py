@@ -73,7 +73,7 @@ def dashboard():
         return redirect("/")
 
     cursor.execute(
-        "SELECT * FROM files WHERE user_id=%s ORDER BY upload_time DESC",
+        "SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE user_id=%s ORDER BY upload_time DESC",
         (session["user_id"],)
     )
 
@@ -108,7 +108,7 @@ def dashboard():
         'storage': storage_str
     }
 
-    cursor.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
+    cursor.execute("SELECT id, username, email, password, profile_pic, last_login FROM users WHERE id=%s", (session["user_id"],))
     user = cursor.fetchone()
 
     return render_template(
@@ -146,7 +146,7 @@ def login():
 
     cursor.execute(
         """
-        SELECT * FROM users
+        SELECT id, username, email, password, profile_pic, last_login FROM users
         WHERE (username=%s OR email=%s)
         AND password=%s
         """,
@@ -172,11 +172,11 @@ def profile():
     if "user_id" not in session:
         return redirect("/")
 
-    cursor.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
+    cursor.execute("SELECT id, username, email, password, profile_pic, last_login FROM users WHERE id=%s", (session["user_id"],))
     user = cursor.fetchone()
 
     cursor.execute(
-        "SELECT * FROM files WHERE user_id=%s ORDER BY upload_time DESC",
+        "SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE user_id=%s ORDER BY upload_time DESC",
         (session["user_id"],)
     )
     files = cursor.fetchall()
@@ -266,7 +266,7 @@ def settings():
     if "user_id" not in session:
         return redirect("/")
 
-    cursor.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
+    cursor.execute("SELECT id, username, email, password, profile_pic, last_login FROM users WHERE id=%s", (session["user_id"],))
     user = cursor.fetchone()
 
     return render_template("settings.html", user=user)
@@ -297,7 +297,7 @@ def delete_account():
     user_id = session["user_id"]
 
     # Retrieve all files owned by the user
-    cursor.execute("SELECT * FROM files WHERE user_id=%s", (user_id,))
+    cursor.execute("SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE user_id=%s", (user_id,))
     files = cursor.fetchall()
 
     # Delete files from S3
@@ -369,7 +369,7 @@ def download_file(file_id):
         return redirect("/")
 
     cursor.execute(
-        "SELECT * FROM files WHERE id=%s AND user_id=%s",
+        "SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE id=%s AND user_id=%s",
         (file_id, session["user_id"])
     )
     file_record = cursor.fetchone()
@@ -405,7 +405,7 @@ def delete_file(file_id):
         return redirect("/")
 
     cursor.execute(
-        "SELECT * FROM files WHERE id=%s AND user_id=%s",
+        "SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE id=%s AND user_id=%s",
         (file_id, session["user_id"])
     )
     file_record = cursor.fetchone()
