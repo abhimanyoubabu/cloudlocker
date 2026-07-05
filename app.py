@@ -73,7 +73,7 @@ def dashboard():
         return redirect("/")
 
     cursor.execute(
-        "SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE user_id=%s ORDER BY upload_time DESC",
+        "SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE user_id=%s ORDER BY upload_time DESC",
         (session["user_id"],)
     )
 
@@ -176,7 +176,7 @@ def profile():
     user = cursor.fetchone()
 
     cursor.execute(
-        "SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE user_id=%s ORDER BY upload_time DESC",
+        "SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE user_id=%s ORDER BY upload_time DESC",
         (session["user_id"],)
     )
     files = cursor.fetchall()
@@ -297,7 +297,7 @@ def delete_account():
     user_id = session["user_id"]
 
     # Retrieve all files owned by the user
-    cursor.execute("SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE user_id=%s", (user_id,))
+    cursor.execute("SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE user_id=%s", (user_id,))
     files = cursor.fetchall()
 
     # Delete files from S3
@@ -339,6 +339,7 @@ def upload():
         return redirect("/dashboard")
 
     file = request.files["uploaded_file"]
+
     if file.filename == "":
         flash("No selected file", "error")
         return redirect("/dashboard")
@@ -348,17 +349,21 @@ def upload():
 
     try:
         s3_client.upload_fileobj(file, BUCKET_NAME, s3_key)
+
         cursor.execute(
             """
-            INSERT INTO files(user_id,file_name,file_path)
-            VALUES(%s,%s,%s)
+            INSERT INTO files (user_id, file_name, s3_key)
+            VALUES (%s, %s, %s)
             """,
             (session["user_id"], filename, s3_key)
         )
+
         db.commit()
+        flash("File uploaded successfully.", "success")
+
     except Exception as e:
         print(f"Error uploading file to S3: {e}")
-        flash("Error uploading file to S3", "error")
+        flash("Error uploading file to S3.", "error")
 
     return redirect("/dashboard")
 
@@ -369,7 +374,7 @@ def download_file(file_id):
         return redirect("/")
 
     cursor.execute(
-        "SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE id=%s AND user_id=%s",
+        "SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE id=%s AND user_id=%s",
         (file_id, session["user_id"])
     )
     file_record = cursor.fetchone()
@@ -405,7 +410,7 @@ def delete_file(file_id):
         return redirect("/")
 
     cursor.execute(
-        "SELECT id, user_id, file_name, file_path, upload_time, download_count FROM files WHERE id=%s AND user_id=%s",
+        "SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE id=%s AND user_id=%s",
         (file_id, session["user_id"])
     )
     file_record = cursor.fetchone()
