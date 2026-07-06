@@ -71,7 +71,7 @@ def register_page():
 def dashboard():
     if "user_id" not in session:
         return redirect("/")
-
+    db.ping(reconnect=True)
     cursor.execute(
         "SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE user_id=%s ORDER BY upload_time DESC",
         (session["user_id"],)
@@ -107,7 +107,7 @@ def dashboard():
         'downloads': total_downloads,
         'storage': storage_str
     }
-
+    db.ping(reconnect=True)
     cursor.execute("SELECT id, username, email, password, profile_pic, last_login FROM users WHERE id=%s", (session["user_id"],))
     user = cursor.fetchone()
 
@@ -125,7 +125,7 @@ def register():
     username = request.form["username"]
     email = request.form["email"]
     password = request.form["password"]
-
+    db.ping(reconnect=True)
     cursor.execute(
         """
         INSERT INTO users(username,email,password)
@@ -143,7 +143,7 @@ def register():
 def login():
     identity = request.form["identity"]
     password = request.form["password"]
-
+    db.ping(reconnect=True)
     cursor.execute(
         """
         SELECT id, username, email, password, profile_pic, last_login FROM users
@@ -158,7 +158,7 @@ def login():
     if user:
         session["user_id"] = user[0]
         session["username"] = user[1]
-        
+        db.ping(reconnect=True)
         cursor.execute("UPDATE users SET last_login=%s WHERE id=%s", (datetime.now(), user[0]))
         db.commit()
         
@@ -171,10 +171,10 @@ def login():
 def profile():
     if "user_id" not in session:
         return redirect("/")
-
+    db.ping(reconnect=True)
     cursor.execute("SELECT id, username, email, password, profile_pic, last_login FROM users WHERE id=%s", (session["user_id"],))
     user = cursor.fetchone()
-
+    db.ping(reconnect=True)
     cursor.execute(
         "SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE user_id=%s ORDER BY upload_time DESC",
         (session["user_id"],)
@@ -193,7 +193,7 @@ def update_password():
     new_password = request.form["new_password"]
     confirm_password = request.form["confirm_password"]
     referrer = request.form.get("referrer", "/profile")
-
+    db.ping(reconnect=True)
     cursor.execute("SELECT password FROM users WHERE id=%s", (session["user_id"],))
     user = cursor.fetchone()
 
@@ -204,7 +204,7 @@ def update_password():
     if new_password != confirm_password:
         flash("New passwords do not match.", "error")
         return redirect(referrer)
-
+    db.ping(reconnect=True)
     cursor.execute("UPDATE users SET password=%s WHERE id=%s", (new_password, session["user_id"]))
     db.commit()
     
@@ -265,7 +265,7 @@ def profile_pic(filename):
 def settings():
     if "user_id" not in session:
         return redirect("/")
-
+    db.ping(reconnect=True)
     cursor.execute("SELECT id, username, email, password, profile_pic, last_login FROM users WHERE id=%s", (session["user_id"],))
     user = cursor.fetchone()
 
@@ -281,7 +281,7 @@ def update_email():
     if not new_email:
         flash("Email cannot be empty.", "error")
         return redirect("/settings")
-
+    db.ping(reconnect=True)
     cursor.execute("UPDATE users SET email=%s WHERE id=%s", (new_email, session["user_id"]))
     db.commit()
 
@@ -295,7 +295,7 @@ def delete_account():
         return redirect("/")
 
     user_id = session["user_id"]
-
+    db.ping(reconnect=True)
     # Retrieve all files owned by the user
     cursor.execute("SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE user_id=%s", (user_id,))
     files = cursor.fetchall()
@@ -308,7 +308,7 @@ def delete_account():
                 s3_client.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
             except Exception as e:
                 print(f"Error removing file {s3_key} from S3: {e}")
-
+    db.ping(reconnect=True)
     # Delete profile picture from S3 if exists
     cursor.execute("SELECT profile_pic FROM users WHERE id=%s", (user_id,))
     user_record = cursor.fetchone()
@@ -317,9 +317,10 @@ def delete_account():
             s3_client.delete_object(Bucket=BUCKET_NAME, Key=user_record[0])
         except Exception as e:
             print(f"Error removing profile picture {user_record[0]} from S3: {e}")
-
+    db.ping(reconnect=True)
     # Delete database records
     cursor.execute("DELETE FROM files WHERE user_id=%s", (user_id,))
+    db.ping(reconnect=True)
     cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
     db.commit()
 
@@ -349,7 +350,7 @@ def upload():
 
     try:
         s3_client.upload_fileobj(file, BUCKET_NAME, s3_key)
-
+        db.ping(reconnect=True)
         cursor.execute(
             """
             INSERT INTO files (user_id, file_name, s3_key)
@@ -372,7 +373,7 @@ def upload():
 def download_file(file_id):
     if "user_id" not in session:
         return redirect("/")
-
+    db.ping(reconnect=True)
     cursor.execute(
         "SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE id=%s AND user_id=%s",
         (file_id, session["user_id"])
@@ -381,7 +382,7 @@ def download_file(file_id):
 
     if not file_record:
         return abort(404, description="File not found or access denied")
-
+    db.ping(reconnect=True)
     cursor.execute("UPDATE files SET download_count = download_count + 1 WHERE id=%s", (file_id,))
     db.commit()
 
@@ -408,7 +409,7 @@ def download_file(file_id):
 def delete_file(file_id):
     if "user_id" not in session:
         return redirect("/")
-
+    db.ping(reconnect=True)
     cursor.execute(
         "SELECT id, user_id, file_name, s3_key, upload_time, download_count FROM files WHERE id=%s AND user_id=%s",
         (file_id, session["user_id"])
@@ -424,7 +425,7 @@ def delete_file(file_id):
         s3_client.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
     except Exception as e:
         print(f"Error deleting file {s3_key} from S3: {e}")
-
+    db.ping(reconnect=True)
     # Delete from database
     cursor.execute("DELETE FROM files WHERE id=%s", (file_id,))
     db.commit()
